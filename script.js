@@ -1,278 +1,296 @@
-const app = document.getElementById('app');
+// =================================================================
+// ARCHIVO: script.js (Versión Demo con localStorage)
+// Objetivo: Funcionalidad completa para GitHub Pages sin Node.js/MySQL.
+// =================================================================
 
-const API_URL = 'http://localhost:3000/api'; 
+// 1. SELECTORES DE ELEMENTOS
+// -----------------------------------------------------------------
+const listaTareas = document.getElementById('listaTareas');
+const selectorGrupo = document.getElementById('selectorGrupo');
+const inputGrupo = document.getElementById('inputGrupo');
+const botonCrearGrupo = document.getElementById('botonCrearGrupo');
+const inputTarea = document.getElementById('inputTarea');
+const botonAgregar = document.getElementById('botonAgregar');
 
-let todosLosGrupos = []; 
-let listaTareas, inputTarea, botonAgregar, inputGrupo, botonCrearGrupo, selectorGrupo;
 
-async function inicializarApp() {
-    // Nota: El H1 y la lista UL se crean aquí si no están en el HTML. 
-    // Como tu HTML ya tiene listaTareas, solo se agrega el H1.
-    const h1 = document.createElement('h1');
-    h1.textContent = 'Lista de Tareas con Grupos (SQL)';
-    app.prepend(h1); 
-    
-    // Ya no es necesario crear listaTareasUL si está en el HTML, pero lo dejamos como seguro
-    const listaTareasUL = document.createElement('ul');
-    listaTareasUL.id = 'listaTareas';
-    if (!document.getElementById('listaTareas')) {
-        app.appendChild(listaTareasUL);
-    }
+// 2. LÓGICA DE LOCALSTORAGE (Simulación de la Base de Datos)
+// -----------------------------------------------------------------
 
-    configurarEventos(); 
-    await cargarGrupos(); 
+function cargarDatosDemo() {
+    // Usamos 'todo_list_demo' como clave para no interferir con otras cosas.
+    const datos = localStorage.getItem('todo_list_demo');
+    return datos ? JSON.parse(datos) : [];
 }
 
-function configurarEventos() {
-    listaTareas = document.getElementById('listaTareas'); 
-    inputTarea = document.getElementById('inputTarea'); 
-    botonAgregar = document.getElementById('botonAgregar');
-    inputGrupo = document.getElementById('inputGrupo'); 
-    botonCrearGrupo = document.getElementById('botonCrearGrupo');
-    selectorGrupo = document.getElementById('selectorGrupo'); 
+function guardarDatosDemo(grupos) {
+    localStorage.setItem('todo_list_demo', JSON.stringify(grupos));
+}
 
-    botonAgregar.addEventListener('click', agregarNuevaTarea);
-    inputTarea.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            agregarNuevaTarea();
+
+// 3. FUNCIONES CRUD SIMULADAS
+// -----------------------------------------------------------------
+
+// *********** GRUPOS ***********
+
+async function obtenerGrupos() {
+    return cargarDatosDemo();
+}
+
+async function crearGrupo(nombre) {
+    let grupos = cargarDatosDemo();
+    
+    // Simula el ID único que daría la BD
+    const nuevoGrupo = {
+        grupo_id: Date.now(), 
+        nombre: nombre,
+        tareas: [] 
+    };
+
+    grupos.push(nuevoGrupo);
+    guardarDatosDemo(grupos);
+    
+    return nuevoGrupo;
+}
+
+async function eliminarGrupo(grupo_id) {
+    let grupos = cargarDatosDemo();
+    const gruposActualizados = grupos.filter(g => g.grupo_id !== grupo_id);
+    
+    guardarDatosDemo(gruposActualizados);
+    return true; 
+}
+
+
+// *********** TAREAS ***********
+
+async function crearTarea(grupo_id, texto) {
+    let grupos = cargarDatosDemo();
+    // Importante: Convertir a número, ya que selector.value es string
+    const grupo = grupos.find(g => g.grupo_id === parseInt(grupo_id)); 
+
+    if (!grupo) return null;
+
+    const nuevaTarea = {
+        tarea_id: Date.now() + Math.random(), 
+        grupo_id: grupo_id,
+        texto: texto,
+        completada: false,
+        fecha_creacion: new Date().toISOString(),
+        fecha_finalizacion: null
+    };
+
+    grupo.tareas.push(nuevaTarea);
+    guardarDatosDemo(grupos);
+
+    return nuevaTarea;
+}
+
+async function marcarTareaComoCompletada(tarea_id, completada) {
+    let grupos = cargarDatosDemo();
+    let tareaEncontrada = null;
+
+    for (const grupo of grupos) {
+        // Asegúrate de comparar el ID como número si lo guardas como número
+        tareaEncontrada = grupo.tareas.find(t => t.tarea_id === parseFloat(tarea_id)); 
+        if (tareaEncontrada) {
+            tareaEncontrada.completada = completada;
+            tareaEncontrada.fecha_finalizacion = completada ? new Date().toISOString() : null;
+            break;
+        }
+    }
+    
+    if (tareaEncontrada) {
+        guardarDatosDemo(grupos);
+        return tareaEncontrada;
+    }
+    return null;
+}
+
+async function eliminarTarea(tarea_id) {
+    let grupos = cargarDatosDemo();
+    let tareaEliminada = false;
+
+    for (const grupo of grupos) {
+        const tareasAntes = grupo.tareas.length;
+        // Filtra para eliminar la tarea (comparando como número)
+        grupo.tareas = grupo.tareas.filter(t => t.tarea_id !== parseFloat(tarea_id));
+        
+        if (grupo.tareas.length < tareasAntes) {
+            tareaEliminada = true;
+            break;
+        }
+    }
+
+    if (tareaEliminada) {
+        guardarDatosDemo(grupos);
+        return true;
+    }
+    return false;
+}
+
+
+// 4. LÓGICA DE RENDERIZADO DEL DOM
+// -----------------------------------------------------------------
+
+function formatearFecha(fechaString) {
+    if (!fechaString) return '';
+    const opciones = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(fechaString).toLocaleDateString('es-ES', opciones);
+}
+
+function crearElementoTarea(tarea) {
+    const li = document.createElement('li');
+    li.className = tarea.completada ? 'tarea-completa' : '';
+    li.dataset.tareaId = tarea.tarea_id;
+    
+    // Contenedor de texto y metadatos
+    const textoDiv = document.createElement('div');
+    textoDiv.classList.add('texto-tarea-contenedor');
+    
+    const textoTarea = document.createElement('span');
+    textoTarea.classList.add('texto-tarea');
+    textoTarea.textContent = tarea.texto;
+
+    const metadatos = document.createElement('div');
+    metadatos.classList.add('metadatos');
+    let fechaTexto = `Creada: ${formatearFecha(tarea.fecha_creacion)}`;
+    if (tarea.completada) {
+        fechaTexto += ` | Finalizada: ${formatearFecha(tarea.fecha_finalizacion)}`;
+    }
+    metadatos.textContent = fechaTexto;
+
+    textoDiv.appendChild(textoTarea);
+    textoDiv.appendChild(metadatos);
+
+    // Botón de eliminar
+    const botonEliminar = document.createElement('button');
+    botonEliminar.classList.add('boton-eliminar');
+    botonEliminar.innerHTML = '&#10005;'; 
+
+    li.appendChild(textoDiv);
+    li.appendChild(botonEliminar);
+    
+    // Evento para marcar/desmarcar
+    li.addEventListener('click', async (e) => {
+        if (e.target === botonEliminar) return; 
+        
+        const nuevaCompleta = !li.classList.contains('tarea-completa');
+        const tareaActualizada = await marcarTareaComoCompletada(tarea.tarea_id, nuevaCompleta);
+        if (tareaActualizada) {
+            cargarTareas(); 
+        }
+    });
+    
+    // Evento para eliminar
+    botonEliminar.addEventListener('click', async () => {
+        if (await eliminarTarea(tarea.tarea_id)) {
+            cargarTareas(); 
         }
     });
 
-    botonCrearGrupo.addEventListener('click', crearNuevoGrupo);
-    inputGrupo.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            crearNuevoGrupo();
+    return li;
+}
+
+function crearBloqueGrupo(grupo) {
+    const contenedor = document.createElement('div');
+    contenedor.classList.add('grupo-bloque');
+    
+    const nombreContenedor = document.createElement('div');
+    nombreContenedor.classList.add('nombre-grupo-contenedor');
+
+    const h2 = document.createElement('h2');
+    h2.textContent = grupo.nombre;
+
+    const botonEliminarGrupo = document.createElement('button');
+    botonEliminarGrupo.classList.add('boton-eliminar-grupo');
+    botonEliminarGrupo.textContent = 'Eliminar Grupo';
+    botonEliminarGrupo.addEventListener('click', async () => {
+        if (confirm(`¿Estás seguro de que quieres eliminar el grupo "${grupo.nombre}" y todas sus tareas?`)) {
+            if (await eliminarGrupo(grupo.grupo_id)) {
+                cargarTareas(); 
+            }
         }
     });
-}
-async function cargarGrupos() {
-    try {
-        const respuesta = await fetch(`${API_URL}/grupos`);
-        if (!respuesta.ok) throw new Error('Error al cargar datos del servidor.');
-        
-        todosLosGrupos = await respuesta.json(); 
-        renderizarGrupos();
-        actualizarSelectorGrupos();
-    } catch (error) {
-        console.error("Error cargando grupos:", error);
-    }
-}
 
-async function crearNuevoGrupo() {
-    const nombre = inputGrupo.value.trim();
-    
-    if (nombre) {
-        try {
-            const respuesta = await fetch(`${API_URL}/grupos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre })
-            });
-            if (!respuesta.ok) throw new Error('Fallo al crear el grupo.');
+    nombreContenedor.appendChild(h2);
+    nombreContenedor.appendChild(botonEliminarGrupo);
+    contenedor.appendChild(nombreContenedor);
 
-            inputGrupo.value = '';
-            await cargarGrupos(); 
-        } catch (error) {
-            alert(`Error al crear el grupo: ${error.message}`);
-        }
-    }
+    // Añade todas las tareas del grupo
+    grupo.tareas.forEach(tarea => {
+        contenedor.appendChild(crearElementoTarea(tarea));
+    });
+
+    return contenedor;
 }
 
-async function eliminarGrupo(grupoId) {
-    if (confirm(`¿Estás seguro de que quieres borrar el grupo y todas sus tareas?`)) {
-        try {
-            const respuesta = await fetch(`${API_URL}/grupos/${grupoId}`, {
-                method: 'DELETE'
-            });
-            if (!respuesta.ok) throw new Error('Fallo al eliminar el grupo.');
+function rellenarSelectorGrupos(grupos) {
+    selectorGrupo.innerHTML = ''; 
 
-            await cargarGrupos(); 
-        } catch (error) {
-            console.error("Error al eliminar grupo:", error);
-        }
-    }
-}
-
-async function agregarNuevaTarea() {
-    const texto = inputTarea.value.trim();
-    const grupoIdSeleccionado = selectorGrupo.value; 
-    
-    if (texto !== "" && grupoIdSeleccionado) {
-        try {
-            const nuevaTareaData = {
-                grupo_id: parseInt(grupoIdSeleccionado), 
-                texto: texto
-            };
-
-            const respuesta = await fetch(`${API_URL}/tareas`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(nuevaTareaData)
-            });
-            if (!respuesta.ok) throw new Error('Fallo al agregar la tarea.');
-
-            inputTarea.value = '';
-            await cargarGrupos(); 
-        } catch (error) {
-            console.error("Error al agregar tarea:", error);
-        }
-    }
-}
-
-async function actualizarEstadoTarea(tareaId, completada) {
-    try {
-        const estado = {
-            completada: completada,
-            fecha_finalizacion: completada ? new Date().toISOString() : null
-        };
-        
-        const respuesta = await fetch(`${API_URL}/tareas/${tareaId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(estado)
-        });
-
-        if (!respuesta.ok) throw new Error('Fallo al actualizar el estado.');
-        
-        return true; 
-    } catch (error) {
-        console.error("Error al actualizar tarea:", error);
-        return false;
-    }
-}
-
-async function eliminarTareaIndividual(tareaId) {
-    try {
-        const respuesta = await fetch(`${API_URL}/tareas/${tareaId}`, {
-            method: 'DELETE'
-        });
-        if (!respuesta.ok) throw new Error('Fallo al eliminar la tarea.');
-
-        await cargarGrupos(); 
-    } catch (error) {
-        console.error("Error al eliminar tarea:", error);
-    }
-}
-
-
-function actualizarSelectorGrupos() {
-    selectorGrupo.innerHTML = '';
-    
-    todosLosGrupos.forEach(grupo => {
+    if (grupos.length === 0) {
         const option = document.createElement('option');
-        option.value = grupo.grupo_id;
+        option.textContent = 'Crea un grupo primero';
+        option.value = '';
+        option.disabled = true;
+        selectorGrupo.appendChild(option);
+        return;
+    }
+    
+    grupos.forEach(grupo => {
+        const option = document.createElement('option');
+        option.value = grupo.grupo_id; // El valor del option es el ID del grupo
         option.textContent = grupo.nombre;
         selectorGrupo.appendChild(option);
     });
 }
 
-function renderizarGrupos() {
-    listaTareas.innerHTML = '';
-
-    todosLosGrupos.forEach(grupo => {
-        const grupoId = grupo.grupo_id; 
-        const nombreGrupo = grupo.nombre;
-
-        const grupoHeaderDiv = document.createElement('div');
-        grupoHeaderDiv.className = 'nombre-grupo-contenedor'; 
-
-        const h2 = document.createElement('h2');
-        h2.textContent = nombreGrupo;
-        grupoHeaderDiv.appendChild(h2);
-
-        const botonEliminarGrupo = document.createElement('button');
-        botonEliminarGrupo.className = 'boton-eliminar-grupo';
-        botonEliminarGrupo.textContent = '❌ Borrar Grupo';
-        
-        botonEliminarGrupo.addEventListener('click', () => {
-            eliminarGrupo(grupoId); 
-        });
-        grupoHeaderDiv.appendChild(botonEliminarGrupo);
-        
-        listaTareas.appendChild(grupoHeaderDiv);
-
-        const ulGrupo = document.createElement('ul');
-        ulGrupo.id = `ul-grupo-${grupoId}`; 
-        
-        grupo.tareas.forEach(tareaData => { 
-            crearElementoTarea(tareaData, ulGrupo); 
-        });
-
-        listaTareas.appendChild(ulGrupo);
+async function cargarTareas() {
+    const grupos = await obtenerGrupos();
+    
+    // 1. Renderiza los grupos y tareas
+    listaTareas.innerHTML = ''; 
+    grupos.forEach(grupo => {
+        listaTareas.appendChild(crearBloqueGrupo(grupo));
     });
+
+    // 2. Actualiza el selector
+    rellenarSelectorGrupos(grupos);
 }
 
-function crearElementoTarea(tareaData, contenedorLista) {
-    const li = document.createElement('li');
-    li.tareaData = tareaData;
 
-    if (tareaData.completada) {
-        li.classList.add('tarea-completa');
+// 5. EVENTOS
+// -----------------------------------------------------------------
+
+// Evento: Crear nuevo grupo
+botonCrearGrupo.addEventListener('click', async () => {
+    const nombre = inputGrupo.value.trim();
+    if (nombre) {
+        await crearGrupo(nombre);
+        inputGrupo.value = ''; 
+        cargarTareas();       
+    } else {
+        alert('Debes ingresar un nombre para el grupo.');
     }
+});
 
-    const contenidoDiv = document.createElement('div');
-    contenidoDiv.style.flexGrow = '1';
-
-    const textoSpan = document.createElement('span');
-    textoSpan.textContent = tareaData.texto;
-    textoSpan.className = 'texto-tarea'; // 👈 CORRECCIÓN: Clase para que funcione el CSS de tachado
-    contenidoDiv.appendChild(textoSpan);
+// Evento: Agregar nueva tarea
+botonAgregar.addEventListener('click', async () => {
+    const texto = inputTarea.value.trim();
+    // Convertir el valor a número, ya que el ID está guardado como Date.now()
+    const grupo_id_seleccionado = parseInt(selectorGrupo.value);
     
-    const metadatosDiv = document.createElement('div');
-    metadatosDiv.className = 'metadatos'; // 👈 OPCIONAL: Agregando clase para metadatos
-    
-    const creacionSpan = document.createElement('span');
-    creacionSpan.textContent = `Creada: ${formatearFecha(tareaData.fecha_creacion)}`;
-    metadatosDiv.appendChild(creacionSpan);
-    
-    const finalizacionSpan = document.createElement('span');
-    finalizacionSpan.id = `finalizacion-${tareaData.tarea_id}`; 
-    finalizacionSpan.style.marginLeft = '10px';
-    finalizacionSpan.textContent = `Finalizada: ${formatearFecha(tareaData.fecha_finalizacion)}`;
-    metadatosDiv.appendChild(finalizacionSpan);
+    if (texto && grupo_id_seleccionado) {
+        await crearTarea(grupo_id_seleccionado, texto);
+        inputTarea.value = ''; 
+        cargarTareas();       
+    } else if (!grupo_id_seleccionado) {
+        alert('Debes seleccionar o crear un grupo antes de añadir una tarea.');
+    } else {
+        alert('Debes ingresar texto para la tarea.');
+    }
+});
 
-    contenidoDiv.appendChild(metadatosDiv);
-    li.appendChild(contenidoDiv);
 
-    li.addEventListener('click', async () => {
-        const estaCompleta = !li.classList.contains('tarea-completa'); 
-        const exito = await actualizarEstadoTarea(tareaData.tarea_id, estaCompleta);
-        
-        if (exito) {
-            li.classList.toggle('tarea-completa');
-            const fechaString = estaCompleta ? new Date().toISOString() : null;
-            finalizacionSpan.textContent = `Finalizada: ${formatearFecha(fechaString)}`;
-        }
-    });
-
-    const botonEliminar = document.createElement('button');
-    botonEliminar.className = 'boton-eliminar';
-    botonEliminar.textContent = '🗑️';
-    
-    botonEliminar.addEventListener('click', (e) => {
-        e.stopPropagation();
-        eliminarTareaIndividual(tareaData.tarea_id);
-    });
-
-    li.appendChild(botonEliminar);
-    contenedorLista.appendChild(li);
-
-    return li;
-}
-
-function formatearFecha(fechaString) {
-    if (!fechaString) return 'Pendiente';
-    
-    const fecha = new Date(fechaString);
-    const opciones = { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    };
-    return fecha.toLocaleString('es-ES', opciones); 
-}
-
-// Inicia la aplicación al cargar el script
-inicializarApp();
+// 6. INICIALIZACIÓN
+// -----------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', cargarTareas);
