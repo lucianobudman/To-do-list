@@ -54,6 +54,4 @@ Para que la aplicación funcione correctamente, es necesario tener dos servidore
 
 ## 🔗 Ver la Demo en GitHub
 
-[**Link a la aplicación desplegada** (Si lograste desplegar el Frontend, aunque la API local no funcione)]
-
-[**Link al repositorio completo en GitHub**]
+https://lucianobudman.github.io/To-do-list/
