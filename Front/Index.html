@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List con Grupos</title>
+    <link rel="stylesheet" href="Style.css"> 
+</head>
+<body>
+    
+    <div id="app">
+        <div class="entrada-grupo">
+            <input type="text" id="inputGrupo" placeholder="Nombre de nuevo grupo...">
+            <button id="botonCrearGrupo">Crear Grupo</button>
+        </div>
+
+        <div class="selector-tarea">
+            <label for="selectorGrupo">Añadir a:</label>
+            <select id="selectorGrupo"></select>
+        </div>
+
+        <div class="entrada-tarea">
+            <input type="text" id="inputTarea" placeholder="Escribe una nueva tarea...">
+            <button id="botonAgregar">Agregar</button>
+        </div>
+
+        <ul id="listaTareas"></ul>
+    </div> 
+    
+    <script src="script.js"></script>
+</body>
+</html>
