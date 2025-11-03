@@ -6,19 +6,10 @@ let todosLosGrupos = [];
 let listaTareas, inputTarea, botonAgregar, inputGrupo, botonCrearGrupo, selectorGrupo;
 
 async function inicializarApp() {
-    // Nota: El H1 y la lista UL se crean aquí si no están en el HTML. 
-    // Como tu HTML ya tiene listaTareas, solo se agrega el H1.
     const h1 = document.createElement('h1');
     h1.textContent = 'Lista de Tareas con Grupos (SQL)';
     app.prepend(h1); 
     
-    // Ya no es necesario crear listaTareasUL si está en el HTML, pero lo dejamos como seguro
-    const listaTareasUL = document.createElement('ul');
-    listaTareasUL.id = 'listaTareas';
-    if (!document.getElementById('listaTareas')) {
-        app.appendChild(listaTareasUL);
-    }
-
     configurarEventos(); 
     await cargarGrupos(); 
 }
@@ -119,11 +110,13 @@ async function agregarNuevaTarea() {
     }
 }
 
-async function actualizarEstadoTarea(tareaId, completada) {
+// <--- MODIFICACIÓN: Acepta el nuevo parámetro 'nota'
+async function actualizarEstadoTarea(tareaId, completada, nota) { 
     try {
         const estado = {
             completada: completada,
-            fecha_finalizacion: completada ? new Date().toISOString() : null
+            fecha_finalizacion: completada ? new Date().toISOString() : null,
+            nota_finalizacion: nota // <--- ¡Añadido!
         };
         
         const respuesta = await fetch(`${API_URL}/tareas/${tareaId}`, {
@@ -215,11 +208,15 @@ function crearElementoTarea(tareaData, contenedorLista) {
 
     const textoSpan = document.createElement('span');
     textoSpan.textContent = tareaData.texto;
-    textoSpan.className = 'texto-tarea'; // 👈 CORRECCIÓN: Clase para que funcione el CSS de tachado
+    textoSpan.className = 'texto-tarea'; 
     contenidoDiv.appendChild(textoSpan);
     
     const metadatosDiv = document.createElement('div');
-    metadatosDiv.className = 'metadatos'; // 👈 OPCIONAL: Agregando clase para metadatos
+    metadatosDiv.className = 'metadatos'; 
+    
+    // Mostrando la nota si existe (o el estado de finalización)
+    const notaSpan = document.createElement('span');
+    notaSpan.id = `nota-${tareaData.tarea_id}`;
     
     const creacionSpan = document.createElement('span');
     creacionSpan.textContent = `Creada: ${formatearFecha(tareaData.fecha_creacion)}`;
@@ -231,17 +228,51 @@ function crearElementoTarea(tareaData, contenedorLista) {
     finalizacionSpan.textContent = `Finalizada: ${formatearFecha(tareaData.fecha_finalizacion)}`;
     metadatosDiv.appendChild(finalizacionSpan);
 
+    if (tareaData.nota_finalizacion) {
+        notaSpan.textContent = ` | Nota: ${tareaData.nota_finalizacion}`;
+        metadatosDiv.appendChild(notaSpan);
+    }
+
     contenidoDiv.appendChild(metadatosDiv);
     li.appendChild(contenidoDiv);
 
     li.addEventListener('click', async () => {
-        const estaCompleta = !li.classList.contains('tarea-completa'); 
-        const exito = await actualizarEstadoTarea(tareaData.tarea_id, estaCompleta);
+        const estabaCompleta = li.classList.contains('tarea-completa');
+        const seraCompleta = !estabaCompleta; 
+        let nota = null; 
+        
+        // --- Lógica para pedir la nota ---
+        if (seraCompleta) {
+            // Pide el texto si se está marcando como completada
+            nota = prompt("La tarea ha sido completada. ¿Quieres añadir una nota de finalización?", "");
+            
+            // Si el usuario presiona Cancelar (null), no hacemos nada
+            if (nota === null) { 
+                return; 
+            }
+        } else {
+            // Si se está desmarcando, la nota se borra (es null)
+            nota = null;
+        }
+        // ----------------------------------
+
+        // Llama a la API con la nota (que puede ser un string o null)
+        const exito = await actualizarEstadoTarea(tareaData.tarea_id, seraCompleta, nota); 
         
         if (exito) {
             li.classList.toggle('tarea-completa');
-            const fechaString = estaCompleta ? new Date().toISOString() : null;
+            const fechaString = seraCompleta ? new Date().toISOString() : null;
+            
             finalizacionSpan.textContent = `Finalizada: ${formatearFecha(fechaString)}`;
+            notaSpan.textContent = nota ? ` | Nota: ${nota}` : '';
+            
+            // Si la nota era null, asegúrate de que el span de la nota esté vacío o se remueva
+            if (!nota) {
+                 notaSpan.remove();
+            } else if (!document.getElementById(`nota-${tareaData.tarea_id}`)) {
+                // Si la nota fue agregada y el span no existía, hay que agregarlo al DOM
+                 metadatosDiv.appendChild(notaSpan);
+            }
         }
     });
 
@@ -274,5 +305,4 @@ function formatearFecha(fechaString) {
     return fecha.toLocaleString('es-ES', opciones); 
 }
 
-// Inicia la aplicación al cargar el script
 inicializarApp();
